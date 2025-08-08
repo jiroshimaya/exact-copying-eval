@@ -1,4 +1,7 @@
-def get_answer_text(sentences: list[str], answer_start: int) -> int:
+from typing import Any
+
+
+def get_answer_sentence(sentences: list[str], answer_start: int) -> int:
     """
     Get the sentence ID that contains the answer span based on the answer start index.
 
@@ -16,8 +19,8 @@ def get_answer_text(sentences: list[str], answer_start: int) -> int:
         # Check if answer_start falls within this sentence
         if current_pos <= answer_start < current_pos + len(sentence):
             return i
-        # Update position (add sentence length + 1 for space separator)
-        current_pos += len(sentence) + 1 if i < len(sentences) - 1 else len(sentence)
+        # Update position (no space separator for Japanese text)
+        current_pos += len(sentence)
 
     # If answer_start is beyond all sentences, return the last sentence index
     return len(sentences) - 1
@@ -65,3 +68,22 @@ def split_text_with_periods(text: str) -> list[str]:
         return sentences
 
     return sentences
+
+
+def add_answer_sentence(example: dict[str, Any]) -> dict[str, Any]:
+    """
+    Add the sentence containing the answer to the example.
+
+    Args:
+        example (dict[str, Any]): The example dictionary containing 'context' and 'answer_start'.
+
+    Returns:
+        dict[str, Any]: Updated example with 'answer_sentence' added.
+    """
+    context = example["context"]
+    answer_start = example["answer"]["answer_start"][0]
+    
+    sentences = split_text_with_periods(context)
+    answer_sentence_id = get_answer_sentence(sentences, answer_start)
+    example["answer_sentence"] = sentences[answer_sentence_id]
+    return example
