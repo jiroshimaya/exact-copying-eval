@@ -1,7 +1,15 @@
 from typing import Any
 import litellm
 from pydantic import BaseModel, Field
+from datasets import load_dataset, Dataset
 
+def load_jsquad() -> Dataset:
+    """
+    Load the JSQuAD dataset.
+    This function is a placeholder for loading the dataset.
+    """
+    dataset = load_dataset("sbintuitions/JSQuAD", split="validation")
+    return dataset
 
 def get_answer_sentence(sentences: list[str], answer_start: int) -> int:
     """
@@ -123,3 +131,11 @@ def extract_answer_text_by_llm(questions: list[str], contexts: list[str],*,model
         answer = Answer.model_validate_json(content)
         answers.append(answer.sentence)
     return answers
+
+def evaluate() -> dict[str, Any]:
+    """評価を実行する関数.
+    
+    Returns:
+        dict[str, Any]: 評価結果
+    """
+    pass  # TODO: 実装予定

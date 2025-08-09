@@ -8,8 +8,21 @@ APIキーが必要であり、課金が発生する可能性があります。
 """
 
 import pytest
-from exact_copying_eval.core.evaluate import extract_answer_text_by_llm
+from exact_copying_eval.core.evaluate import extract_answer_text_by_llm, load_jsquad
 
+class TestLoadJsquad:
+    """load_jsquad関数のテストクラス."""
+
+    def test_正常系(self):
+        """JSQuADデータセットが正しくロードできることを確認."""
+        # Arrange
+        dataset = load_jsquad()
+        
+        # Act
+        assert len(dataset) > 0, "JSQuADデータセットが空です。"
+        assert "context" in dataset.column_names, "context列が存在しません。"
+        assert "question" in dataset.column_names, "question列が存在しません。"
+        print(f"JSQuADデータセットのサンプル数: {len(dataset)}")
 
 class TestExtractAnswerTextByLlm:
     """extract_answer_text_by_llm関数のテストクラス."""
