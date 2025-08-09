@@ -1,4 +1,6 @@
 from typing import Any
+import litellm
+from pydantic import BaseModel, Field
 
 
 def get_answer_sentence(sentences: list[str], answer_start: int) -> int:
@@ -87,3 +89,37 @@ def add_answer_sentence(example: dict[str, Any]) -> dict[str, Any]:
     answer_sentence_id = get_answer_sentence(sentences, answer_start)
     example["answer_sentence"] = sentences[answer_sentence_id]
     return example
+
+def extract_answer_text_by_llm(questions: list[str], contexts: list[str],*,model="gpt-5-nano") -> list[str]:
+    """
+    Extract the answer text from the context based on the question using an LLM.
+
+    Args:
+        question (str): The question to be answered.
+        context (str): The context from which to extract the answer.
+
+    Returns:
+        str: The extracted answer text.
+    """
+    class Answer(BaseModel):
+        """Answer Information"""
+        sentence: str = Field(..., description="The sentence including the answer.")
+
+    messages_list = []
+    for question, context in zip(questions, contexts):
+        messages=[
+            {"role": "system", "content": "コンテキストのうち、Questionに対する回答を含む文章を、句点含めて、そのまま抜き出してください。"},
+            {"role": "user", "content": f"Context: {context}\nQuestion: {question}"}
+        ]
+        messages_list.append(messages)
+    response = litellm.batch_completion(
+        messages=messages_list,
+        model=model,
+        response_format=Answer
+    )
+    answers = []
+    for response in response:
+        content = response['choices'][0]['message']['content']
+        answer = Answer.model_validate_json(content)
+        answers.append(answer.sentence)
+    return answers

@@ -9,8 +9,8 @@ dependencies = [
     "structlog>=25.4.0",
     "rich>=13.7.0", # structlogのカラフルなコンソール出力用
     "pydantic>=2.11.7",
-    "litellm>=1.75.2",
     "datasets>=4.0.0",
+    "litellm==1.74",
 ]
 
 
@@ -121,6 +121,7 @@ addopts = [
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
+    "manual: marks tests as manual tests (require manual execution)",
 ]
 
 [dependency-groups]
