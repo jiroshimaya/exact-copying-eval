@@ -6,9 +6,9 @@
 
 ## 評価指標
 
-- **Exact Match Accuracy**: 予想回答と実際の出力が完全に一致した割合
-- **Inclusion Accuracy**: 予想回答が実際の出力に含まれている割合
-- **Average Edit Distance**: 予想回答と実際の出力間の正規化編集距離（0.0が完全一致、1.0が完全不一致）
+- **Exact Match Accuracy**: 回答と実際の出力が完全に一致した割合
+- **Inclusion Accuracy**: 実際の出力が回答に含まれている割合
+- **Average Edit Distance**: 回答と実際の出力間の正規化編集距離（0.0が完全一致、1.0が完全不一致）
 
 ## 評価結果サマリー
 
@@ -35,3 +35,49 @@
 | gpt-5        | simple-random  | 1.0         | 1.0       | 0.00              |
 | gpt-5        | simple-natural | 1.0         | 1.0       | 0.00              |
 | gpt-5        | qa-natural     | 0.97        | 0.99      | 0.0027            |
+
+## 再現用コマンド
+
+### データセット作成
+```bash
+uv run python src/exact_copying_eval/core/create_dataset.py --output_dir evaluation/dataset/
+```
+
+以下のファイルが生成される。実際に使うのは100のみ。
+
+- evaluation/dataset/evaluation_dataset_10.json
+- evaluation/dataset/evaluation_dataset_100.json
+- evaluation/dataset/evaluation_dataset_4442.json
+
+```bash
+uv run python src/exact_copying_eval/core/create_dataset.py --output_dir evaluation/dataset/ --random-string
+```
+
+以下のファイルが生成される。実際に使うのは100のみ。
+
+- evaluation/dataset/evaluation_dataset_10_random.json
+- evaluation/dataset/evaluation_dataset_100_random.json
+- evaluation/dataset/evaluation_dataset_4442_random.json
+
+
+### モデル評価
+```bash
+uv run python src/exact_copying_eval/core/evaluate.py --dataset DATASET --model MODEL --prompt_type PROMPT_TYPE --output_dir evaluation/result
+```
+
+DATASETとPROMPT_TYPEの組み合わせは以下のいずれか。
+
+```bash
+DATASET=evaluation/dataset/evaluation_dataset_100.json PROMPT_TYPE=qa
+DATASET=evaluation/dataset/evaluation_dataset_100.json PROMPT_TYPE=simple
+DATASET=evaluation/dataset/evaluation_dataset_100_random.json PROMPT_TYPE=simple
+```
+
+MODELは以下のいずれか
+
+- gpt-4.1-mini
+- gpt-4.1
+- o4-mini
+- gpt-5-nano
+- gpt-5-mini
+- gpt-5
