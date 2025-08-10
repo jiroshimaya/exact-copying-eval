@@ -11,6 +11,8 @@ dependencies = [
     "pydantic>=2.11.7",
     "datasets>=4.0.0",
     "litellm==1.74",
+    "editdistance>=0.8.1",
+    "pyright>=1.1.403",
 ]
 
 
@@ -132,6 +134,7 @@ dev = [
     "bandit>=1.7.0",
     "pip-audit>=2.6.0",
     "taskipy>=1.14.1",
+    "pyright>=1.1.403",
 ]
 docs = [
     "sphinx>=7.0.0",

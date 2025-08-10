@@ -143,6 +143,12 @@ def evaluate(
         sum(edit_distances) / len(edit_distances) if edit_distances else 0.0
     )
 
+    # Calculate average answer length
+    answer_lengths = [len(answer) for answer in answers]
+    avg_answer_length = (
+        sum(answer_lengths) / len(answer_lengths) if answer_lengths else 0.0
+    )
+
     # Prepare detailed results for wrong answers
     wrong_details = []
     detailed_results = []
@@ -152,7 +158,7 @@ def evaluate(
     ):
         is_exact_match = expected == actual
         is_inclusion = actual in expected
-        edit_dist = editdistance.eval(expected, actual)
+        edit_dist = editdistance.eval(expected, actual) / len(expected)
 
         detailed_result = {
             "index": i,
@@ -178,6 +184,7 @@ def evaluate(
         "inclusion_count": inclusion_count,
         "inclusion_accuracy": inclusion_count / len(questions) if questions else 0.0,
         "avg_edit_distance": avg_edit_distance,
+        "avg_answer_length": avg_answer_length,
         "model": model,
         "prompt_type": prompt_type,
         "dataset_file": dataset_file,
@@ -197,6 +204,7 @@ def evaluate(
         inclusion_count=summary["inclusion_count"],
         inclusion_accuracy=summary["inclusion_accuracy"],
         avg_edit_distance=summary["avg_edit_distance"],
+        avg_answer_length=summary["avg_answer_length"],
     )
 
     return {
@@ -270,6 +278,7 @@ if __name__ == "__main__":
     print(f"Exact Match Accuracy: {result['summary']['exact_match_accuracy']:.4f}")
     print(f"Inclusion Accuracy: {result['summary']['inclusion_accuracy']:.4f}")
     print(f"Average Edit Distance: {result['summary']['avg_edit_distance']:.2f}")
+    print(f"Average Answer Length: {result['summary']['avg_answer_length']:.2f}")
 
     from pathlib import Path
 
