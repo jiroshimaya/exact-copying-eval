@@ -1,6 +1,8 @@
+import datetime
 import logging
 from typing import Any, Literal
 
+import editdistance
 import litellm
 import tqdm
 from pydantic import BaseModel, Field
@@ -124,35 +126,83 @@ def evaluate(
             )
         )
 
-    correct_count = sum(1 for a, b in zip(answers, generated_answers, strict=False) if a == b)
+    # Calculate multiple metrics
+    exact_match_count = sum(
+        1 for a, b in zip(answers, generated_answers, strict=False) if a == b
+    )
+    inclusion_count = sum(
+        1 for a, b in zip(answers, generated_answers, strict=False) if b in a
+    )
+
+    # Calculate average edit distance
+    edit_distances = [
+        editdistance.eval(a, b) / len(a)
+        for a, b in zip(answers, generated_answers, strict=False)
+    ]
+    avg_edit_distance = (
+        sum(edit_distances) / len(edit_distances) if edit_distances else 0.0
+    )
+
+    # Prepare detailed results for wrong answers
     wrong_details = []
-    for i, (a, b) in enumerate(zip(answers, generated_answers, strict=False)):
-        if a != b:
-            wrong_details.append(
-                {
-                    "index": i,
-                    "question": questions[i],
-                    "context": contexts[i],
-                    "expected": a,
-                    "actual": b,
-                }
-            )
+    detailed_results = []
+
+    for i, (expected, actual) in enumerate(
+        zip(answers, generated_answers, strict=False)
+    ):
+        is_exact_match = expected == actual
+        is_inclusion = actual in expected
+        edit_dist = editdistance.eval(expected, actual)
+
+        detailed_result = {
+            "index": i,
+            "question": questions[i],
+            "context": contexts[i],
+            "expected": expected,
+            "actual": actual,
+            "exact_match": is_exact_match,
+            "inclusion": is_inclusion,
+            "edit_distance": edit_dist,
+        }
+        detailed_results.append(detailed_result)
+
+        if not is_exact_match:
+            wrong_details.append(detailed_result)
 
     summary = {
         "total": len(questions),
-        "correct_count": correct_count,
-        "accuracy": correct_count / len(questions) if questions else 0.0,
+        "exact_match_count": exact_match_count,
+        "exact_match_accuracy": exact_match_count / len(questions)
+        if questions
+        else 0.0,
+        "inclusion_count": inclusion_count,
+        "inclusion_accuracy": inclusion_count / len(questions) if questions else 0.0,
+        "avg_edit_distance": avg_edit_distance,
         "model": model,
+        "prompt_type": prompt_type,
+        "dataset_file": dataset_file,
+        "timestamp": datetime.datetime.now().isoformat(),
+    }
+
+    detail = {
+        "detailed_results": detailed_results,
+        "wrong_details": wrong_details,
     }
 
     logger.info(
         "Evaluation completed",
         total=summary["total"],
-        correct=summary["correct_count"],
-        accuracy=summary["accuracy"],
+        exact_match_count=summary["exact_match_count"],
+        exact_match_accuracy=summary["exact_match_accuracy"],
+        inclusion_count=summary["inclusion_count"],
+        inclusion_accuracy=summary["inclusion_accuracy"],
+        avg_edit_distance=summary["avg_edit_distance"],
     )
 
-    return {"summary": summary, "wrong_details": wrong_details}
+    return {
+        "summary": summary,
+        "detail": detail,
+    }
 
 
 if __name__ == "__main__":
@@ -182,17 +232,33 @@ if __name__ == "__main__":
         help="プロンプトのタイプを指定します（qa または simple）",
     )
     parser.add_argument(
-        "--output", type=str, default="", help="Output file for results."
+        "--output_file", type=str, default=None, help="Output file path for results."
+    )
+    parser.add_argument(
+        "--output_dir", type=str, default=None, help="Output directory for results."
     )
     args = parser.parse_args()
 
-    output_path = args.output
-    if not args.output:
+    # 引数の検証
+    if args.output_file and args.output_dir:
+        parser.error("--output_file と --output_dir の両方を指定することはできません。")
+
+    # 出力パスの決定
+    if args.output_file:
+        output_path = args.output_file
+    else:
         from pathlib import Path
 
         dataset_path = Path(args.dataset)
         dataset_name = dataset_path.stem
-        output_path = f"result_{args.model}_{dataset_name}_{args.prompt_type}.json"
+        default_filename = f"result_{args.model}_{dataset_name}_{args.prompt_type}.json"
+
+        if args.output_dir:
+            output_dir = Path(args.output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = output_dir / default_filename
+        else:
+            output_path = default_filename
 
     result = evaluate(
         dataset_file=args.dataset,
@@ -201,9 +267,12 @@ if __name__ == "__main__":
         prompt_type=args.prompt_type,
     )
     print("評価結果:")
-    print(result["summary"]["correct_count"] / result["summary"]["total"])
+    print(f"Exact Match Accuracy: {result['summary']['exact_match_accuracy']:.4f}")
+    print(f"Inclusion Accuracy: {result['summary']['inclusion_accuracy']:.4f}")
+    print(f"Average Edit Distance: {result['summary']['avg_edit_distance']:.2f}")
 
     from pathlib import Path
+
     output_file = Path(output_path)
     with output_file.open("w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=4)
