@@ -8,7 +8,7 @@ APIキーが必要であり、課金が発生する可能性があります。
 """
 
 import pytest
-from exact_copying_eval.core.evaluate import extract_answer_text_by_llm, load_jsquad
+from exact_copying_eval.core.evaluate import extract_answer_text_by_llm, load_jsquad, evaluate
 
 class TestLoadJsquad:
     """load_jsquad関数のテストクラス."""
@@ -49,3 +49,18 @@ class TestExtractAnswerTextByLlm:
         assert "データから自動的にパターンを学習する技術" in answers[0]
         print(f"実際の回答: {answers[0]}")
 
+class TestEvaluate:
+    """evaluate関数のテストクラス."""
+
+    def test_正常系(self):
+        """evaluate関数が正しく動作することを確認."""
+        # Act
+        result = evaluate(model="gpt-5-nano", num=10, batch_size=10)
+        
+        # Assert
+        assert "questions" in result, "questionsキーが結果に存在しません。"
+        assert "contexts" in result, "contextsキーが結果に存在しません。"
+        assert "answers" in result, "answersキーが結果に存在しません。"
+        assert len(result["questions"]) == len(result["contexts"]) == len(result["answers"]), \
+            "質問、コンテキスト、回答の数が一致しません。"
+        print(f"評価結果: {result}")

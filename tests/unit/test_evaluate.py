@@ -1,396 +1,514 @@
-"""Test script for main.py functions."""
+"""Test script for evaluate.py functions."""
+
+from unittest.mock import Mock, patch
+
+import pytest
+from datasets import Dataset
 
 from exact_copying_eval.core.evaluate import (
-    add_answer_sentence,
-    get_answer_sentence,
-    split_text_with_periods,
+    create_context,
+    evaluate,
+    extract_answer_text_by_llm,
+    get_dummy_indices,
+    get_exact_copying_qa_prompt,
+    get_exact_copying_simple_prompt,
+    load_jsquad,
+    remove_linebreaks,
 )
 
 
-class TestGetAnswerSentence:
-    """Test class for get_answer_sentence function."""
+class TestLoadJsquad:
+    """Test class for load_jsquad function."""
 
-    def test_正常系_回答が中間の文にある場合(self):
-        """回答が中間の文に含まれる場合、正しい文IDを返すこと"""
-        sentences = ["This is first.", "This is second.", "This is third."]
-        # "second" の開始位置は "This is first. This is " の後 = 16 + 8 = 24
-        answer_start = 24
+    @patch("exact_copying_eval.core.evaluate.load_dataset")
+    def test_正常系_データセット読み込み成功(self, mock_load_dataset):
+        """JSQuADデータセットの読み込みが成功すること"""
+        # モックデータセットを作成
+        mock_dataset = Mock(spec=Dataset)
+        mock_load_dataset.return_value = mock_dataset
 
-        result = get_answer_sentence(sentences, answer_start)
+        result = load_jsquad()
 
-        assert result == 1  # 2番目の文（インデックス1）
-
-    def test_正常系_回答が最初の文にある場合(self):
-        """回答が最初の文に含まれる場合、文ID 0を返すこと"""
-        sentences = ["This is first.", "This is second.", "This is third."]
-        answer_start = 5  # "first" の開始位置
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 0
-
-    def test_正常系_回答が最後の文にある場合(self):
-        """回答が最後の文に含まれる場合、正しい文IDを返すこと"""
-        sentences = ["This is first.", "This is second.", "This is third."]
-        # "third" の開始位置は "This is first. This is second. This is " の後
-        # = 16 + 17 + 8 = 41
-        answer_start = 41
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 2  # 3番目の文（インデックス2）
-
-    def test_エッジケース_回答開始位置が文の最初(self):
-        """回答開始位置が文の最初の文字と一致する場合"""
-        sentences = ["Hello", "World", "Test"]
-        answer_start = 6  # "World" の開始位置（"Hello " の後）
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 1
-
-    def test_エッジケース_単一文の場合(self):
-        """文が1つしかない場合"""
-        sentences = ["Only one sentence."]
-        answer_start = 5  # "one" の開始位置
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 0
-
-    def test_エッジケース_空文字列が含まれる場合(self):
-        """空文字列が含まれる文リストの場合"""
-        sentences = ["First", "", "Third"]
-        answer_start = (
-            7  # "Third" の開始位置（"First  " の後、空文字列分のスペースも含む）
+        assert result == mock_dataset
+        mock_load_dataset.assert_called_once_with(
+            "sbintuitions/JSQuAD", split="validation"
         )
 
-        result = get_answer_sentence(sentences, answer_start)
+    @patch("exact_copying_eval.core.evaluate.load_dataset")
+    def test_異常系_データセット型不正(self, mock_load_dataset):
+        """読み込んだデータセットがDataset型でない場合、ValueErrorが発生すること"""
+        # 不正な型をモックとして設定
+        mock_load_dataset.return_value = "not_a_dataset"
 
-        assert result == 2
-
-    def test_境界値_回答位置が範囲外の場合(self):
-        """回答開始位置が全文の範囲を超える場合、最後の文IDを返すこと"""
-        sentences = ["First", "Second", "Third"]
-        answer_start = 100  # 明らかに範囲外
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 2  # 最後の文のインデックス
-
-    def test_異常系_空の文リストの場合(self):
-        """空の文リストが渡された場合の動作確認"""
-        sentences: list[str] = []
-        answer_start = 0
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == -1  # len([]) - 1 = -1
-
-    def test_境界値_回答位置が0の場合(self):
-        """回答開始位置が0の場合"""
-        sentences = ["First sentence", "Second sentence"]
-        answer_start = 0
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 0
-
-    def test_正常系_日本語句点区切り_スペースなし(self):
-        """日本語の句点区切りでスペースがない場合の動作確認"""
-        sentences = ["これは文です。", "これも文です。", "最後の文。"]
-        # "これも文です。" の "これ" の開始位置 = 最初の文の長さ = 7
-        answer_start = 7
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 1  # 2番目の文
-
-    def test_正常系_連続する句点の場合_スペースなし(self):
-        """連続する句点がある場合でスペースがない場合の動作確認"""
-        sentences = ["文章。", "。", "別の文章。"]
-        # "別の文章。" の "別" の開始位置 = "文章。" + "。" = 3 + 1 = 4
-        answer_start = 4
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 2  # 3番目の文
-
-    def test_正常系_英語と句点の混在_スペースなし(self):
-        """英語と日本語が混在する場合でスペースがない場合の動作確認"""
-        sentences = ["Hello。", "World。", "Test。"]
-        # "World。" の "W" の開始位置 = "Hello。" = 6
-        answer_start = 6
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 1  # 2番目の文
-
-    def test_エッジケース_文の境界での回答位置_スペースなし(self):
-        """文の境界ちょうどでの回答位置の場合（スペースなし）"""
-        sentences = ["短い。", "もう少し長い文。", "最後。"]
-        # 2番目の文の最初の文字 "も" の位置 = "短い。" = 3
-        answer_start = 3
-
-        result = get_answer_sentence(sentences, answer_start)
-
-        assert result == 1  # 2番目の文
+        with pytest.raises(ValueError, match="Loaded dataset is not of type Dataset."):
+            load_jsquad()
 
 
-class TestSplitTextWithPeriods:
-    """Test class for split_text_with_periods function."""
+class TestRemoveLinebreaks:
+    """Test class for remove_linebreaks function."""
 
-    def test_正常系_複数の句点がある文章(self):
-        """複数の句点で区切られた文章を正しく分割できること"""
-        text = "これは文です。これも文です。最後の文。"
+    def test_正常系_改行文字除去(self):
+        """改行文字が正しく除去されること"""
+        text = "This is\na test\nwith\nlinebreaks"
 
-        result = split_text_with_periods(text)
+        result = remove_linebreaks(text)
 
-        assert result == ["これは文です。", "これも文です。", "最後の文。"]
+        assert result == "This isa testwithlinebreaks"
 
-    def test_正常系_文末に句点がない場合(self):
-        """文末に句点がない場合も正しく処理できること"""
-        text = "これは文です。句点なし"
+    def test_正常系_改行なしテキスト(self):
+        """改行がないテキストはそのまま返されること"""
+        text = "This is a text without linebreaks"
 
-        result = split_text_with_periods(text)
+        result = remove_linebreaks(text)
 
-        assert result == ["これは文です。", "句点なし"]
+        assert result == "This is a text without linebreaks"
 
-    def test_正常系_句点が1つもない場合(self):
-        """句点が含まれない文字列の場合、そのまま返すこと"""
-        text = "句点なしの文章"
-
-        result = split_text_with_periods(text)
-
-        assert result == ["句点なしの文章"]
-
-    def test_エッジケース_空文字列の場合(self):
-        """空文字列が渡された場合、空のリストを返すこと"""
+    def test_エッジケース_空文字列(self):
+        """空文字列の場合、空文字列が返されること"""
         text = ""
 
-        result = split_text_with_periods(text)
+        result = remove_linebreaks(text)
 
-        assert result == []
+        assert result == ""
 
-    def test_エッジケース_句点のみの場合(self):
-        """句点のみの文字列の場合の処理"""
-        text = "。"
+    def test_正常系_複数種類の改行文字(self):
+        """複数種類の改行文字が除去されること"""
+        text = "Line1\nLine2\r\nLine3\rLine4"
 
-        result = split_text_with_periods(text)
+        result = remove_linebreaks(text)
 
-        assert result == ["。"]  # 空文字でjoinして元に戻るため保持
-
-    def test_エッジケース_連続する句点の場合(self):
-        """連続する句点がある場合の処理"""
-        text = "文章。。別の文章。"
-
-        result = split_text_with_periods(text)
-
-        # 空文字列も保持（元文字列復元のため）
-        assert result == ["文章。", "。", "別の文章。"]
-
-    def test_エッジケース_空白のみの文がある場合(self):
-        """空白のみの文がある場合も保持されること"""
-        text = "文章。   。別の文章。"
-
-        result = split_text_with_periods(text)
-
-        assert result == ["文章。", "   。", "別の文章。"]
-
-    def test_正常系_単一の句点で終わる文(self):
-        """単一の文が句点で終わる場合"""
-        text = "これは一つの文です。"
-
-        result = split_text_with_periods(text)
-
-        assert result == ["これは一つの文です。"]
-
-    def test_要件_空文字でjoinして元文字列に戻る(self):
-        """分割した結果を空文字でjoinすると元の文字列に戻ること"""
-        text = "これは文です。これも文です。最後の文。"
-
-        result = split_text_with_periods(text)
-        joined = "".join(result)
-
-        assert joined == text
-
-    def test_要件_空白を保持する(self):
-        """文中の空白は保持されること"""
-        text = "文章。  空白あり  。別の文章。"
-
-        result = split_text_with_periods(text)
-        joined = "".join(result)
-
-        assert joined == text
-
-    def test_要件_連続句点の場合も元文字列に戻る(self):
-        """連続する句点がある場合でも、joinして元文字列に戻ること"""
-        text = "文章。。別の文章。"
-
-        result = split_text_with_periods(text)
-        joined = "".join(result)
-
-        assert joined == text
-
-    def test_要件_句点のみの文字列も元に戻る(self):
-        """句点のみの文字列でも、joinして元文字列に戻ること"""
-        text = "。"
-
-        result = split_text_with_periods(text)
-        joined = "".join(result)
-
-        assert joined == text
+        assert result == "Line1Line2Line3Line4"
 
 
-class TestAddAnswerSentence:
-    """Test class for add_answer_sentence function."""
+class TestCreateContext:
+    """Test class for create_context function."""
 
-    def test_正常系_回答が中間の文にある場合(self):
-        """回答が中間の文に含まれる場合、正しい文が追加されること"""
-        example = {
-            "context": "This is first。This is second。This is third。",
-            "answer": {"answer_start": [22]},  # "second" の開始位置 ("This is first。This is " = 25文字)
-            "other_field": "value",
-        }
+    def test_正常系_複数インデックスからコンテキスト作成(self):
+        """複数のインデックスから正しくコンテキストが作成されること"""
+        # モックデータセット作成
+        mock_dataset = Mock()
+        mock_dataset.__getitem__ = Mock(
+            side_effect=lambda i: {"context": f"Context {i}\nwith\nlinebreaks"}
+        )
+        indices = [0, 2, 5]
 
-        result = add_answer_sentence(example)
+        result = create_context(mock_dataset, indices)
 
-        assert result["answer_sentence"] == "This is second。"
-        assert result["other_field"] == "value"  # 他のフィールドは保持される
+        expected = (
+            "Context 0withlinebreaks\nContext 2withlinebreaks\nContext 5withlinebreaks"
+        )
+        assert result == expected
 
-    def test_正常系_回答が最初の文にある場合(self):
-        """回答が最初の文に含まれる場合、最初の文が追加されること"""
-        example = {
-            "context": "This is first。This is second。This is third。",
-            "answer": {"answer_start": [8]},  # "first" の開始位置 ("This is " = 8文字)
-            "question": "What is this?",
-        }
+    def test_正常系_単一インデックス(self):
+        """単一インデックスの場合も正しく処理されること"""
+        mock_dataset = Mock()
+        mock_dataset.__getitem__ = Mock(return_value={"context": "Single\ncontext"})
+        indices = [1]
 
-        result = add_answer_sentence(example)
+        result = create_context(mock_dataset, indices)
 
-        assert result["answer_sentence"] == "This is first。"
-        assert result["question"] == "What is this?"
+        assert result == "Singlecontext"
 
-    def test_正常系_回答が最後の文にある場合(self):
-        """回答が最後の文に含まれる場合、最後の文が追加されること"""
-        example = {
-            "context": "This is first。This is second。This is third。",
-            "answer": {"answer_start": [37]},  # "third" の開始位置 ("This is first。This is second。This is " = 42文字)
-            "id": "test_id",
-        }
+    def test_エッジケース_空インデックスリスト(self):
+        """空のインデックスリストの場合、空文字列が返されること"""
+        mock_dataset = Mock()
+        indices = []
 
-        result = add_answer_sentence(example)
+        result = create_context(mock_dataset, indices)
 
-        assert result["answer_sentence"] == "This is third。"
-        assert result["id"] == "test_id"
+        assert result == ""
 
-    def test_エッジケース_単一文の場合(self):
-        """文が1つしかない場合、その文が追加されること"""
-        example = {
-            "context": "Only one sentence。",
-            "answer": {"answer_start": [5]},  # "one" の開始位置
-        }
 
-        result = add_answer_sentence(example)
+class TestGetExactCopyingQaPrompt:
+    """Test class for get_exact_copying_qa_prompt function."""
 
-        assert result["answer_sentence"] == "Only one sentence。"
+    def test_正常系_QAプロンプト生成(self):
+        """QA用のプロンプトが正しく生成されること"""
+        question = "テスト質問"
+        context = "テストコンテキスト"
 
-    def test_境界値_回答位置が範囲外の場合(self):
-        """回答開始位置が全文の範囲を超える場合、最後の文が追加されること"""
-        example = {
-            "context": "First。Second。Third。",
-            "answer": {"answer_start": [100]},  # 明らかに範囲外
-        }
+        result = get_exact_copying_qa_prompt(question, context)
 
-        result = add_answer_sentence(example)
+        assert len(result) == 2
+        assert result[0]["role"] == "system"
+        assert "コンテキストの各要素は改行で区切られています" in result[0]["content"]
+        assert result[1]["role"] == "user"
+        assert f"Context: {context}" in result[1]["content"]
+        assert f"Question: {question}" in result[1]["content"]
 
-        assert result["answer_sentence"] == "Third。"
 
-    def test_正常系_既存のanswer_sentenceを上書き(self):
-        """既にanswer_sentenceフィールドがある場合、上書きされること"""
-        example = {
-            "context": "First。Second。Third。",
-            "answer": {"answer_start": [6]},  # "Second" の開始位置 ("First。" = 6文字)
-            "answer_sentence": "Old sentence",
-            "other_data": [1, 2, 3],
-        }
+class TestGetExactCopyingSimplePrompt:
+    """Test class for get_exact_copying_simple_prompt function."""
 
-        result = add_answer_sentence(example)
+    def test_正常系_Simpleプロンプト生成(self):
+        """Simple用のプロンプトが正しく生成されること"""
+        question = "テスト質問"  # この関数では使用されない
+        context = "テストコンテキスト"
 
-        assert result["answer_sentence"] == "Second。"
-        assert result["other_data"] == [1, 2, 3]
+        result = get_exact_copying_simple_prompt(question, context)
 
-    def test_正常系_空白を含む文の場合(self):
-        """空白を含む文でも正しく処理されること"""
-        example = {
-            "context": "Short text。This is a long sentence with spaces。",
-            "answer": {"answer_start": [17]},  # "long sentence" の開始位置 ("Short text。This is a " = 17文字)
-        }
+        assert len(result) == 2
+        assert result[0]["role"] == "system"
+        assert "2行目を、過不足なくそのまま抜き出してください" in result[0]["content"]
+        assert result[1]["role"] == "user"
+        assert result[1]["content"] == context
 
-        result = add_answer_sentence(example)
 
-        assert result["answer_sentence"] == "This is a long sentence with spaces。"
+class TestGetDummyIndices:
+    """Test class for get_dummy_indices function."""
 
-    def test_エッジケース_回答位置が0の場合(self):
-        """回答開始位置が0の場合、最初の文が追加されること"""
-        example = {
-            "context": "First sentence。Second sentence。",
-            "answer": {"answer_start": [0]},
-        }
+    def test_正常系_前半インデックスの場合(self):
+        """answer_indexが前半の場合、後半からダミーインデックスが選ばれること"""
+        answer_index = 10
+        dataset_length = 100
 
-        result = add_answer_sentence(example)
+        result = get_dummy_indices(answer_index, dataset_length)
 
-        assert result["answer_sentence"] == "First sentence。"
+        expected = [75, 99]  # dataset_length//4 * 3, dataset_length-1
+        assert result == expected
 
-    def test_正常系_複雑な構造のexample(self):
-        """複雑な構造のexampleでも正しく処理されること"""
-        example = {
-            "context": "Context text。Answer is here。End。",
-            "answer": {"answer_start": [14]},  # "Answer is here" の開始位置 ("Context text。" = 14文字)
-            "question": "What is the answer?",
-            "metadata": {"source": "test", "annotator": "human"},
-        }
+    def test_正常系_後半インデックスの場合(self):
+        """answer_indexが後半の場合、前半からダミーインデックスが選ばれること"""
+        answer_index = 60
+        dataset_length = 100
 
-        result = add_answer_sentence(example)
+        result = get_dummy_indices(answer_index, dataset_length)
 
-        assert result["answer_sentence"] == "Answer is here。"
-        assert result["context"] == "Context text。Answer is here。End。"
-        assert result["question"] == "What is the answer?"
-        assert result["metadata"] == {"source": "test", "annotator": "human"}
+        expected = [0, 25]  # 0, dataset_length//4
+        assert result == expected
 
-    def test_要件_元のexampleは変更されない(self):
-        """元のexample辞書は変更されないこと（副作用がないこと）"""
-        original_example = {
-            "context": "This is a test sentence。",
-            "answer": {"answer_start": [10]},  # "test" の開始位置 ("This is a " = 10文字)
-            "test_field": "original_value",
-        }
+    def test_境界値_ちょうど中間の場合(self):
+        """answer_indexがちょうど中間の場合の動作確認"""
+        answer_index = 50
+        dataset_length = 100  # 50 == 100//2
 
-        result = add_answer_sentence(original_example)
+        result = get_dummy_indices(answer_index, dataset_length)
 
-        # 戻り値は元の辞書と同じオブジェクトなので、実際には変更される
-        # この動作が意図されているかテストで確認
-        assert result is original_example  # 同じオブジェクトかチェック
-        assert original_example["answer_sentence"] == "This is a test sentence。"
+        expected = [75, 99]  # 前半として扱われる
+        assert result == expected
 
-    def test_正常系_句点なしの文の場合(self):
-        """句点がない文でも正しく処理されること"""
-        example = {
-            "context": "No period here",
-            "answer": {"answer_start": [3]},  # "period" の開始位置 ("No " = 3文字)
-        }
+    def test_エッジケース_小さなデータセット(self):
+        """小さなデータセットでも正しく動作すること"""
+        answer_index = 1
+        dataset_length = 4
 
-        result = add_answer_sentence(example)
+        result = get_dummy_indices(answer_index, dataset_length)
 
-        assert result["answer_sentence"] == "No period here"
+        expected = [3, 3]  # dataset_length//4 * 3 = 3, dataset_length-1 = 3
+        assert result == expected
 
-    def test_正常系_連続する句点の場合(self):
-        """連続する句点がある場合でも正しく処理されること"""
-        example = {
-            "context": "文章。。別の文章。",
-            "answer": {"answer_start": [4]},  # "別の文章" の開始位置 ("文章。。" = 4文字)
-        }
 
-        result = add_answer_sentence(example)
+class TestExtractAnswerTextByLlm:
+    """Test class for extract_answer_text_by_llm function."""
 
-        assert result["answer_sentence"] == "別の文章。"
+    @patch("exact_copying_eval.core.evaluate.litellm.batch_completion")
+    def test_正常系_単一質問と回答(self, mock_batch_completion):
+        """単一の質問に対して正しく回答が抽出されること"""
+        # モックレスポンス設定
+        mock_response = [
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"sentence": "This is the answer sentence."}'
+                        }
+                    }
+                ]
+            }
+        ]
+        mock_batch_completion.return_value = mock_response
+
+        questions = ["What is the answer?"]
+        contexts = ["Context line 1\nThis is the answer sentence.\nContext line 3"]
+
+        result = extract_answer_text_by_llm(questions, contexts, model="gpt-5-nano", prompt_type="qa")
+
+        assert result == ["This is the answer sentence."]
+        mock_batch_completion.assert_called_once()
+
+    @patch("exact_copying_eval.core.evaluate.litellm.batch_completion")
+    def test_正常系_複数質問と回答(self, mock_batch_completion):
+        """複数の質問に対して正しく回答が抽出されること"""
+        # モックレスポンス設定
+        mock_responses = [
+            {"choices": [{"message": {"content": '{"sentence": "Answer 1"}'}}]},
+            {"choices": [{"message": {"content": '{"sentence": "Answer 2"}'}}]},
+        ]
+        mock_batch_completion.return_value = mock_responses
+
+        questions = ["Question 1?", "Question 2?"]
+        contexts = [
+            "Context 1\nAnswer 1\nMore context",
+            "Context 2\nAnswer 2\nMore context",
+        ]
+
+        result = extract_answer_text_by_llm(questions, contexts, model="test-model", prompt_type="qa")
+
+        assert result == ["Answer 1", "Answer 2"]
+
+    @patch("exact_copying_eval.core.evaluate.litellm.batch_completion")
+    def test_正常系_モデル指定(self, mock_batch_completion):
+        """指定したモデルが正しく使用されること"""
+        mock_response = [
+            {"choices": [{"message": {"content": '{"sentence": "Test answer"}'}}]}
+        ]
+        mock_batch_completion.return_value = mock_response
+
+        questions = ["Test question?"]
+        contexts = ["Test context\nTest answer\nMore context"]
+
+        extract_answer_text_by_llm(questions, contexts, model="custom-model", prompt_type="qa")
+
+        # モデル引数が正しく渡されているか確認
+        call_args = mock_batch_completion.call_args
+        assert call_args[1]["model"] == "custom-model"
+
+    @patch("exact_copying_eval.core.evaluate.litellm.batch_completion")
+    def test_正常系_prompt_type_simple(self, mock_batch_completion):
+        """prompt_type='simple'が正しく動作すること"""
+        mock_response = [
+            {"choices": [{"message": {"content": '{"sentence": "Test answer"}'}}]}
+        ]
+        mock_batch_completion.return_value = mock_response
+
+        questions = ["Test question?"]
+        contexts = ["Test context\nTest answer\nMore context"]
+
+        result = extract_answer_text_by_llm(questions, contexts, model="test-model", prompt_type="simple")
+
+        assert result == ["Test answer"]
+        # prompt_typeがsimpleの場合の処理が呼ばれているかは実装の詳細で検証
+
+    @patch("exact_copying_eval.core.evaluate.litellm.batch_completion")
+    def test_正常系_prompt_type_qa(self, mock_batch_completion):
+        """prompt_type='qa'が正しく動作すること"""
+        mock_response = [
+            {"choices": [{"message": {"content": '{"sentence": "Test answer"}'}}]}
+        ]
+        mock_batch_completion.return_value = mock_response
+
+        questions = ["Test question?"]
+        contexts = ["Test context\nTest answer\nMore context"]
+
+        result = extract_answer_text_by_llm(questions, contexts, model="test-model", prompt_type="qa")
+
+        assert result == ["Test answer"]
+
+
+class TestEvaluate:
+    """Test class for evaluate function."""
+
+    @patch("exact_copying_eval.core.evaluate.load_jsquad")
+    @patch("exact_copying_eval.core.evaluate.extract_answer_text_by_llm")
+    def test_正常系_基本的な評価実行(self, mock_extract, mock_load):
+        """基本的な評価が正しく実行されること"""
+        # モックデータセット設定
+        mock_dataset = Mock()
+        mock_dataset.__len__ = Mock(return_value=10)
+
+        # オリジナルデータセットの__getitem__設定
+        def mock_original_index_access(index):
+            return {"context": f"Context {index} with content"}
+        
+        mock_dataset.__getitem__ = Mock(side_effect=mock_original_index_access)
+
+        # selectメソッドも同じモックデータセットを返すように設定
+        mock_selected_dataset = Mock()
+        mock_selected_dataset.__len__ = Mock(return_value=10)  # len()メソッドを追加
+        mock_selected_dataset.__getitem__ = Mock(
+            side_effect=lambda key: {
+                "question": [f"Question {i}" for i in range(10)],
+                "context": [f"Context {i} with content" for i in range(10)],
+            }[key]
+        )
+
+        # 個別インデックスアクセス用のモック設定
+        def mock_index_access(index):
+            return {"context": f"Context {index} with content"}
+
+        mock_selected_dataset.__getitem__ = Mock(
+            side_effect=lambda key: {
+                "question": [f"Question {i}" for i in range(10)],
+                "context": [f"Context {i} with content" for i in range(10)],
+            }[key]
+            if isinstance(key, str)
+            else mock_index_access(key)
+        )
+
+        mock_dataset.select = Mock(return_value=mock_selected_dataset)
+        mock_load.return_value = mock_dataset
+
+        # モック回答設定 - 改行を除去した形になる
+        mock_extract.return_value = [f"Context {i} with content" for i in range(10)]
+
+        result = evaluate(num=10, model="test-model", batch_size=5, prompt_type="qa")
+
+        assert "summary" in result
+        assert "wrong_details" in result
+        assert result["summary"]["total"] == 10
+        assert result["summary"]["model"] == "test-model"
+        assert result["summary"]["accuracy"] == 1.0  # 全て正解
+        assert result["summary"]["correct_count"] == 10
+
+    @patch("exact_copying_eval.core.evaluate.load_jsquad")
+    @patch("exact_copying_eval.core.evaluate.extract_answer_text_by_llm")
+    def test_正常系_部分的正解の場合(self, mock_extract, mock_load):
+        """部分的に正解した場合の評価結果が正しいこと"""
+        # モックデータセット設定
+        mock_dataset = Mock()
+        mock_dataset.__len__ = Mock(return_value=3)
+
+        # オリジナルデータセットの__getitem__設定
+        def mock_original_index_access(index):
+            return {"context": f"Context {index}"}
+        
+        mock_dataset.__getitem__ = Mock(side_effect=mock_original_index_access)
+
+        mock_selected_dataset = Mock()
+        mock_selected_dataset.__len__ = Mock(return_value=3)  # len()メソッドを追加
+
+        def mock_index_access(index):
+            return {"context": f"Context {index}"}
+
+        mock_selected_dataset.__getitem__ = Mock(
+            side_effect=lambda key: {
+                "question": ["Q1", "Q2", "Q3"],
+                "context": ["Context 0", "Context 1", "Context 2"],
+            }[key]
+            if isinstance(key, str)
+            else mock_index_access(key)
+        )
+
+        mock_dataset.select = Mock(return_value=mock_selected_dataset)
+        mock_load.return_value = mock_dataset
+
+        # 一部間違った回答を設定
+        mock_extract.return_value = ["Context 0", "Wrong answer", "Context 2"]
+
+        result = evaluate(num=3, model="test-model", batch_size=2, prompt_type="qa")
+
+        assert result["summary"]["correct_count"] == 2
+        assert result["summary"]["accuracy"] == 2 / 3
+        assert len(result["wrong_details"]) == 1
+        assert result["wrong_details"][0]["index"] == 1
+        assert result["wrong_details"][0]["expected"] == "Context 1"
+        assert result["wrong_details"][0]["actual"] == "Wrong answer"
+
+    @patch("exact_copying_eval.core.evaluate.load_jsquad")
+    def test_正常系_データセットサイズ調整(self, mock_load):
+        """指定したnum値がデータセットサイズより大きい場合の調整"""
+        mock_dataset = Mock()
+        mock_dataset.__len__ = Mock(return_value=5)  # データセットサイズは5
+
+        # オリジナルデータセットの__getitem__設定
+        def mock_original_index_access(index):
+            return {"context": f"Context {index}"}
+        
+        mock_dataset.__getitem__ = Mock(side_effect=mock_original_index_access)
+
+        mock_selected_dataset = Mock()
+        mock_selected_dataset.__len__ = Mock(return_value=5)  # len()メソッドを追加
+
+        def mock_index_access(index):
+            return {"context": f"Context {index}"}
+
+        mock_selected_dataset.__getitem__ = Mock(
+            side_effect=lambda key: {
+                "question": [f"Q{i}" for i in range(5)],
+                "context": [f"Context {i}" for i in range(5)],
+            }[key]
+            if isinstance(key, str)
+            else mock_index_access(key)
+        )
+
+        mock_dataset.select = Mock(return_value=mock_selected_dataset)
+        mock_load.return_value = mock_dataset
+
+        with patch(
+            "exact_copying_eval.core.evaluate.extract_answer_text_by_llm"
+        ) as mock_extract:
+            mock_extract.return_value = [f"Context {i}" for i in range(5)]
+
+            result = evaluate(num=10, model="test-model", prompt_type="qa")  # num=10だがデータセットは5
+
+            assert result["summary"]["total"] == 5  # データセットサイズに調整される
+
+    @patch("exact_copying_eval.core.evaluate.load_jsquad")
+    def test_正常系_負の値指定(self, mock_load):
+        """num=-1の場合、全データセットが使用されること"""
+        mock_dataset = Mock()
+        mock_dataset.__len__ = Mock(return_value=7)
+
+        # オリジナルデータセットの__getitem__設定
+        def mock_original_index_access(index):
+            return {"context": f"Context {index}"}
+        
+        mock_dataset.__getitem__ = Mock(side_effect=mock_original_index_access)
+
+        mock_selected_dataset = Mock()
+        mock_selected_dataset.__len__ = Mock(return_value=7)  # len()メソッドを追加
+
+        def mock_index_access(index):
+            return {"context": f"Context {index}"}
+
+        mock_selected_dataset.__getitem__ = Mock(
+            side_effect=lambda key: {
+                "question": [f"Q{i}" for i in range(7)],
+                "context": [f"Context {i}" for i in range(7)],
+            }[key]
+            if isinstance(key, str)
+            else mock_index_access(key)
+        )
+
+        mock_dataset.select = Mock(return_value=mock_selected_dataset)
+        mock_load.return_value = mock_dataset
+
+        with patch(
+            "exact_copying_eval.core.evaluate.extract_answer_text_by_llm"
+        ) as mock_extract:
+            mock_extract.return_value = [f"Context {i}" for i in range(7)]
+
+            result = evaluate(num=-1, model="test-model", prompt_type="qa")
+
+            assert result["summary"]["total"] == 7
+
+    @patch("exact_copying_eval.core.evaluate.load_jsquad")
+    @patch("exact_copying_eval.core.evaluate.extract_answer_text_by_llm")
+    def test_正常系_prompt_type_simple(self, mock_extract, mock_load):
+        """prompt_type='simple'が正しく動作すること"""
+        mock_dataset = Mock()
+        mock_dataset.__len__ = Mock(return_value=3)
+
+        # オリジナルデータセットの__getitem__設定
+        def mock_original_index_access(index):
+            return {"context": f"Context {index}"}
+        
+        mock_dataset.__getitem__ = Mock(side_effect=mock_original_index_access)
+
+        mock_selected_dataset = Mock()
+        mock_selected_dataset.__len__ = Mock(return_value=3)
+
+        def mock_index_access(index):
+            return {"context": f"Context {index}"}
+
+        mock_selected_dataset.__getitem__ = Mock(
+            side_effect=lambda key: {
+                "question": [f"Q{i}" for i in range(3)],
+                "context": [f"Context {i}" for i in range(3)],
+            }[key]
+            if isinstance(key, str)
+            else mock_index_access(key)
+        )
+
+        mock_dataset.select = Mock(return_value=mock_selected_dataset)
+        mock_load.return_value = mock_dataset
+
+        mock_extract.return_value = [f"Context {i}" for i in range(3)]
+
+        result = evaluate(num=3, model="test-model", batch_size=2, prompt_type="simple")
+
+        assert result["summary"]["total"] == 3
+        # extract_answer_text_by_llmがprompt_type='simple'で呼ばれているかチェック
+        mock_extract.assert_called()
+        call_args = mock_extract.call_args
+        assert call_args[1]["prompt_type"] == "simple"
