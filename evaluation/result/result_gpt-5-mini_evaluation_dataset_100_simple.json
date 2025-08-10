@@ -9,8 +9,8 @@
         "avg_answer_length": 182.6,
         "model": "gpt-5-mini",
         "prompt_type": "simple",
-        "dataset_file": "evaluation/dataset/evaluation_dataset_100.json",
-        "timestamp": "2025-08-10T22:40:47.004213"
+        "dataset_file": "/Users/jiro/development/exact-copying-eval/evaluation/dataset/evaluation_dataset_100.json",
+        "timestamp": "2025-08-11T08:40:32.719802"
     },
     "detail": {
         "detailed_results": [

@@ -12,29 +12,38 @@
 
 ## 評価結果サマリー
 
+### Exact Match Accuracy
 
-### モデル別・条件別性能比較
+| Model        | qa-natural | simple-natural | simple-random |
+|--------------|------------|----------------|---------------|
+| gpt-4.1-mini | 0.010      | 0.030          | 0.85          |
+| gpt-4.1      | 0.00       | 0.00           | 1.0           |
+| o4-mini      | 0.94       | 0.98           | 0.99          |
+| gpt-5-nano   | 0.41       | 0.72           | 0.88          |
+| gpt-5-mini   | 0.90       | 1.0            | 0.98          |
+| gpt-5        | 0.98       | 0.99           | 0.99          |
 
-| Model        | Condition       | Exact Match | Inclusion | Avg Edit Distance |
-|--------------|----------------|-------------|-----------|-------------------|
-| gpt-4.1-mini | simple-random  | 0.83        | 0.83      | 0.24              |
-| gpt-4.1-mini | simple-natural | 0.020       | 0.74      | 0.35              |
-| gpt-4.1-mini | qa-natural     | 0.040       | 0.95      | 0.59              |
-| gpt-4.1      | simple-random  | 0.98        | 0.98      | 0.019             |
-| gpt-4.1      | simple-natural | 0.00        | 0.66      | 0.72              |
-| gpt-4.1      | qa-natural     | 0.00        | 1.0       | 0.62              |
-| o4-mini      | simple-random  | 0.99        | 0.99      | 0.00010           |
-| o4-mini      | simple-natural | 0.96        | 0.97      | 0.0018            |
-| o4-mini      | qa-natural     | 0.94        | 0.98      | 0.026             |
-| gpt-5-nano   | simple-random  | 0.87        | 0.87      | 0.017             |
-| gpt-5-nano   | simple-natural | 0.69        | 0.69      | 0.31              |
-| gpt-5-nano   | qa-natural     | 0.30        | 0.95      | 0.39              |
-| gpt-5-mini   | simple-random  | 0.99        | 0.99      | 0.00              |
-| gpt-5-mini   | simple-natural | 1.0         | 1.0       | 0.00              |
-| gpt-5-mini   | qa-natural     | 0.86        | 0.97      | 0.023             |
-| gpt-5        | simple-random  | 1.0         | 1.0       | 0.00              |
-| gpt-5        | simple-natural | 1.0         | 1.0       | 0.00              |
-| gpt-5        | qa-natural     | 0.97        | 0.99      | 0.0027            |
+### Inclusion Accuracy
+
+| Model        | qa-natural | simple-natural | simple-random |
+|--------------|------------|----------------|---------------|
+| gpt-4.1-mini | 0.94       | 0.74           | 0.85          |
+| gpt-4.1      | 1.0        | 0.63           | 1.0           |
+| o4-mini      | 0.97       | 0.98           | 0.99          |
+| gpt-5-nano   | 0.94       | 0.72           | 0.88          |
+| gpt-5-mini   | 0.93       | 1.0            | 0.98          |
+| gpt-5        | 1.0        | 0.99           | 0.99          |
+
+### Average Edit Distance
+
+| Model        | qa-natural | simple-natural | simple-random |
+|--------------|------------|----------------|---------------|
+| gpt-4.1-mini | 0.61       | 0.33           | 0.18          |
+| gpt-4.1      | 0.64       | 0.62           | 0.00          |
+| o4-mini      | 0.014      | 0.0093         | 0.000066      |
+| gpt-5-nano   | 0.34       | 0.27           | 0.026         |
+| gpt-5-mini   | 0.0039     | 0.00           | 0.000074      |
+| gpt-5        | 0.0018     | 0.000062       | 0.000033      |
 
 ## 再現用コマンド
 
@@ -61,6 +70,15 @@ uv run python src/exact_copying_eval/core/create_dataset.py --output_dir evaluat
 
 
 ### モデル評価
+
+全実行の場合は以下。
+
+```bash
+uv run evaluation/reproduce_scripts/run_evaluate.py
+```
+
+個別実行の場合は以下。
+
 ```bash
 uv run python src/exact_copying_eval/core/evaluate.py --dataset DATASET --model MODEL --prompt_type PROMPT_TYPE --output_dir evaluation/result
 ```
