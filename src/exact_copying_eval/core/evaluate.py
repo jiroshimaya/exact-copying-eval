@@ -99,10 +99,10 @@ def evaluate(
         dict[str, Any]: 評価結果
     """
     logger.info(
-        "Starting evaluation",
-        dataset_file=dataset_file,
-        model=model,
-        prompt_type=prompt_type,
+        "Starting evaluation - dataset_file=%s, model=%s, prompt_type=%s",
+        dataset_file,
+        model,
+        prompt_type,
     )
 
     # Load evaluation dataset from JSON
