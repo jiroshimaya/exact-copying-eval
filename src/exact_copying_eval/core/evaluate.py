@@ -5,7 +5,7 @@ from typing import Any, Literal
 import editdistance
 import litellm
 import tqdm
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from exact_copying_eval.core.create_dataset import load_evaluation_dataset
 
@@ -57,10 +57,10 @@ def extract_answer_text_by_llm(
         str: The extracted answer text.
     """
 
-    class Answer(BaseModel):
-        """Answer Information"""
+    class ExtractedText(BaseModel):
+        """Extracted Text Information"""
 
-        sentence: str = Field(..., description="The sentence including the answer.")
+        sentence: str
 
     messages_list = []
     for question, context in zip(questions, contexts, strict=False):
@@ -70,12 +70,12 @@ def extract_answer_text_by_llm(
             messages = get_exact_copying_simple_prompt(question, context)
         messages_list.append(messages)
     response_list = litellm.batch_completion(
-        messages=messages_list, model=model, response_format=Answer
+        messages=messages_list, model=model, response_format=ExtractedText
     )
     answers = []
     for response in response_list:
         content = response["choices"][0]["message"]["content"]
-        answer = Answer.model_validate_json(content)
+        answer = ExtractedText.model_validate_json(content)
         answers.append(answer.sentence)
     return answers
 
