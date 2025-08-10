@@ -2,9 +2,9 @@
 
 import json
 import logging
+import random
 from pathlib import Path
 from typing import Any
-import random
 
 from datasets import Dataset, load_dataset
 from pydantic import BaseModel
@@ -92,6 +92,7 @@ def get_dummy_indices(answer_index: int, dataset_length: int) -> list[int]:
     else:
         return [0, dataset_length // 4]
 
+
 def convert_to_random_string(text: str) -> str:
     """
     Convert the text to a random japanese string with same length.
@@ -101,16 +102,20 @@ def convert_to_random_string(text: str) -> str:
     Returns:
         str: The converted random string.
     """
-    # Use a separate random state for string conversion to avoid affecting dataset sampling
-    string_random = random.Random(hash(text) % (2**32))  # Deterministic based on input text
-    
-    # Generate a random Japanese string (ひらがな・カタカナ) of the same length as the input text
+    # Use a separate random state for string conversion to avoid affecting
+    # dataset sampling
+    string_random = random.Random(
+        hash(text) % (2**32)
+    )  # Deterministic based on input text
     japanese_chars = (
-      [chr(i) for i in range(0x3041, 0x3097)] +  # ひらがな
-      [chr(i) for i in range(0x30A1, 0x30FB)]    # カタカナ
+        [chr(i) for i in range(0x3041, 0x3097)]  # ひらがな
+        + [chr(i) for i in range(0x30A1, 0x30FB)]  # カタカナ
     )
-    random_string = ''.join(string_random.choice(japanese_chars) for _ in range(len(text)))
+    random_string = "".join(
+        string_random.choice(japanese_chars) for _ in range(len(text))
+    )
     return random_string
+
 
 def create_dataset_item(idx: int, dataset: Dataset) -> EvaluationItem:
     """
@@ -127,15 +132,14 @@ def create_dataset_item(idx: int, dataset: Dataset) -> EvaluationItem:
     dummy_indices = get_dummy_indices(idx, len(dataset))
     context_indices = [dummy_indices[0], idx, dummy_indices[1]]
     contexts = create_context(dataset, context_indices)
-    
+
     # Convert expected answer to random string if needed
     expected_answer = contexts[1]
-    
+
     return EvaluationItem(
-        question=question,
-        context="\n".join(contexts),
-        expected_answer=expected_answer
+        question=question, context="\n".join(contexts), expected_answer=expected_answer
     )
+
 
 def create_dataset_random_item(idx: int, dataset: Dataset) -> EvaluationItem:
     """
@@ -153,41 +157,52 @@ def create_dataset_random_item(idx: int, dataset: Dataset) -> EvaluationItem:
     context_indices = [dummy_indices[0], idx, dummy_indices[1]]
     contexts = create_context(dataset, context_indices)
     contexts = [convert_to_random_string(context) for context in contexts]
-    
+
     # Convert expected answer to random string
     expected_answer = contexts[1]
-    
+
     return EvaluationItem(
-        question=question,
-        context="\n".join(contexts),
-        expected_answer=expected_answer
+        question=question, context="\n".join(contexts), expected_answer=expected_answer
     )
 
+
 def create_evaluation_dataset(
-    *, 
-    nums: list[int] = [10, 100, -1], 
+    *,
+    nums: list[int] | None = None,
     output_dir: str | None = None,
     use_random_strings: bool = False,
-    seed: int | None = None
+    seed: int | None = None,
 ) -> list[str]:
     """
     Create evaluation datasets and save to JSON files.
 
     Args:
-        nums (list[int]): List of numbers of examples to include in each dataset.
-                         -1 means all examples.
-        output_dir (str | None): Output directory for the datasets. If None, uses current directory.
-        use_random_strings (bool): Whether to convert expected answers to random strings.
-        seed (int | None): Random seed for reproducible results. If None, uses default random behavior.
+        nums (list[int]):
+            List of numbers of examples to include in each dataset.
+            -1 means all examples.
+        output_dir (str | None):
+            Output directory for the datasets.
+            If None, uses current directory.
+        use_random_strings (bool):
+            Whether to convert expected answers to random strings.
+        seed (int | None):
+            Random seed for reproducible results.
+            If None, uses default random behavior.
 
     Returns:
         list[str]: Paths to the created JSON files.
     """
+    if nums is None:
+        nums = [10, 100, -1]
     # Set random seed if provided
     if seed is not None:
         random.seed(seed)
         logger.info("Random seed set to: %d", seed)
-    logger.info("Starting dataset creation (nums: %s, use_random_strings: %s)", nums, use_random_strings)
+    logger.info(
+        "Starting dataset creation (nums: %s, use_random_strings: %s)",
+        nums,
+        use_random_strings,
+    )
 
     # Load original dataset
     ds = load_jsquad()
@@ -213,12 +228,15 @@ def create_evaluation_dataset(
     # Create and save datasets for each specified number
     output_files = []
     from datetime import datetime
+
     timestamp = datetime.now().isoformat()
 
     for num in nums:
         # Determine actual number of examples
         actual_num = min(num, full_length) if num > 0 else full_length
-        logger.info("Creating dataset with %d examples (requested: %d)", actual_num, num)
+        logger.info(
+            "Creating dataset with %d examples (requested: %d)", actual_num, num
+        )
 
         # Select items randomly
         if actual_num == full_length:
@@ -244,7 +262,9 @@ def create_evaluation_dataset(
         else:
             output_dir_path = Path(output_dir)
             output_dir_path.mkdir(parents=True, exist_ok=True)
-            current_output_path = str(output_dir_path / f"evaluation_dataset_{actual_num}{suffix}.json")
+            current_output_path = str(
+                output_dir_path / f"evaluation_dataset_{actual_num}{suffix}.json"
+            )
 
         output_file = Path(current_output_path)
 
@@ -254,7 +274,11 @@ def create_evaluation_dataset(
             json.dump(dataset.model_dump(), f, ensure_ascii=False, indent=2)
 
         output_files.append(str(output_file))
-        logger.info("Dataset saved (output_path: %s, num_items: %d)", str(output_file), len(selected_items))
+        logger.info(
+            "Dataset saved (output_path: %s, num_items: %d)",
+            str(output_file),
+            len(selected_items),
+        )
 
     logger.info("All datasets created successfully: %s", output_files)
     return output_files
@@ -287,7 +311,9 @@ def load_evaluation_dataset(file_path: str) -> EvaluationDataset:
             data = json.load(f)
 
         dataset = EvaluationDataset.model_validate(data)
-        logger.info("Evaluation dataset loaded successfully (num_items: %d)", len(dataset.items))
+        logger.info(
+            "Evaluation dataset loaded successfully (num_items: %d)", len(dataset.items)
+        )
         return dataset
 
     except Exception as e:
@@ -312,10 +338,10 @@ if __name__ == "__main__":
         help="Numbers of examples to include in the datasets. Use -1 for all examples.",
     )
     parser.add_argument(
-        "--output_dir", 
-        type=str, 
-        default=None, 
-        help="Output directory for the datasets."
+        "--output_dir",
+        type=str,
+        default=None,
+        help="Output directory for the datasets.",
     )
     parser.add_argument(
         "--random-strings",
@@ -332,9 +358,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     output_paths = create_evaluation_dataset(
-        nums=args.nums, 
+        nums=args.nums,
         output_dir=args.output_dir,
         use_random_strings=args.random_strings,
-        seed=args.seed
+        seed=args.seed,
     )
     print(f"Datasets created: {output_paths}")

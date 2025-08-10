@@ -67,20 +67,22 @@ class TestConvertToRandomString:
         """生成された文字列が日本語文字のみで構成されることを確認。"""
         text = "テスト文字列"
         result = convert_to_random_string(text)
-        
+
         # 日本語文字（ひらがな、カタカナ、漢字）の範囲をチェック
         japanese_ranges = [
             (0x3041, 0x3096),  # ひらがな
             (0x30A1, 0x30FA),  # カタカナ
             (0x4E00, 0x9FFF),  # 漢字
         ]
-        
+
         for char in result:
             char_code = ord(char)
             is_japanese = any(
                 start <= char_code <= end for start, end in japanese_ranges
             )
-            assert is_japanese, f"Non-Japanese character found: {char} (code: {char_code})"
+            assert is_japanese, (
+                f"Non-Japanese character found: {char} (code: {char_code})"
+            )
 
 
 class TestGetDummyIndices:
@@ -261,7 +263,9 @@ class TestCreateEvaluationDataset:
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = str(Path(temp_dir) / "test_dataset.json")
 
-            result_paths = create_evaluation_dataset(nums=[1, 2], output_path=output_path)
+            result_paths = create_evaluation_dataset(
+                nums=[1, 2], output_path=output_path
+            )
 
             assert len(result_paths) == 2
             assert any("_1.json" in path for path in result_paths)

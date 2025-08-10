@@ -68,7 +68,9 @@ class TestExtractAnswerTextByLlm:
         questions = ["What is the answer?"]
         contexts = ["Context line 1\nThis is the answer sentence.\nContext line 3"]
 
-        result = extract_answer_text_by_llm(questions, contexts, model="gpt-5-nano", prompt_type="qa")
+        result = extract_answer_text_by_llm(
+            questions, contexts, model="gpt-5-nano", prompt_type="qa"
+        )
 
         assert result == ["This is the answer sentence."]
         mock_batch_completion.assert_called_once()
@@ -89,7 +91,9 @@ class TestExtractAnswerTextByLlm:
             "Context 2\nAnswer 2\nMore context",
         ]
 
-        result = extract_answer_text_by_llm(questions, contexts, model="test-model", prompt_type="qa")
+        result = extract_answer_text_by_llm(
+            questions, contexts, model="test-model", prompt_type="qa"
+        )
 
         assert result == ["Answer 1", "Answer 2"]
 
@@ -104,7 +108,9 @@ class TestExtractAnswerTextByLlm:
         questions = ["Test question?"]
         contexts = ["Test context\nTest answer\nMore context"]
 
-        extract_answer_text_by_llm(questions, contexts, model="custom-model", prompt_type="qa")
+        extract_answer_text_by_llm(
+            questions, contexts, model="custom-model", prompt_type="qa"
+        )
 
         # モデル引数が正しく渡されているか確認
         call_args = mock_batch_completion.call_args
@@ -121,7 +127,9 @@ class TestExtractAnswerTextByLlm:
         questions = ["Test question?"]
         contexts = ["Test context\nTest answer\nMore context"]
 
-        result = extract_answer_text_by_llm(questions, contexts, model="test-model", prompt_type="simple")
+        result = extract_answer_text_by_llm(
+            questions, contexts, model="test-model", prompt_type="simple"
+        )
 
         assert result == ["Test answer"]
         # prompt_typeがsimpleの場合の処理が呼ばれているかは実装の詳細で検証
@@ -137,7 +145,9 @@ class TestExtractAnswerTextByLlm:
         questions = ["Test question?"]
         contexts = ["Test context\nTest answer\nMore context"]
 
-        result = extract_answer_text_by_llm(questions, contexts, model="test-model", prompt_type="qa")
+        result = extract_answer_text_by_llm(
+            questions, contexts, model="test-model", prompt_type="qa"
+        )
 
         assert result == ["Test answer"]
 
@@ -149,15 +159,19 @@ class TestEvaluate:
     @patch("exact_copying_eval.core.evaluate.extract_answer_text_by_llm")
     def test_正常系_基本的な評価実行(self, mock_extract, mock_load_dataset):
         """基本的な評価が正しく実行されること"""
-        from exact_copying_eval.core.create_dataset import EvaluationDataset, EvaluationItem
-        
+        from exact_copying_eval.core.create_dataset import (
+            EvaluationDataset,
+            EvaluationItem,
+        )
+
         # モックデータセット設定
         items = [
             EvaluationItem(
                 question=f"Question {i}",
                 context=f"Context {i}",
-                expected_answer=f"Answer {i}"
-            ) for i in range(3)
+                expected_answer=f"Answer {i}",
+            )
+            for i in range(3)
         ]
         mock_dataset = EvaluationDataset(items=items, metadata={})
         mock_load_dataset.return_value = mock_dataset
@@ -169,7 +183,7 @@ class TestEvaluate:
             dataset_file="test_dataset.json",
             model="test-model",
             batch_size=2,
-            prompt_type="qa"
+            prompt_type="qa",
         )
 
         assert "summary" in result
@@ -185,24 +199,21 @@ class TestEvaluate:
     @patch("exact_copying_eval.core.evaluate.extract_answer_text_by_llm")
     def test_正常系_部分的正解の場合(self, mock_extract, mock_load_dataset):
         """部分的に正解した場合の評価結果が正しいこと"""
-        from exact_copying_eval.core.create_dataset import EvaluationDataset, EvaluationItem
-        
+        from exact_copying_eval.core.create_dataset import (
+            EvaluationDataset,
+            EvaluationItem,
+        )
+
         # モックデータセット設定
         items = [
             EvaluationItem(
-                question="Q1",
-                context="Context 1",
-                expected_answer="Answer 1"
+                question="Q1", context="Context 1", expected_answer="Answer 1"
             ),
             EvaluationItem(
-                question="Q2",
-                context="Context 2",
-                expected_answer="Answer 2"
+                question="Q2", context="Context 2", expected_answer="Answer 2"
             ),
             EvaluationItem(
-                question="Q3",
-                context="Context 3",
-                expected_answer="Answer 3"
+                question="Q3", context="Context 3", expected_answer="Answer 3"
             ),
         ]
         mock_dataset = EvaluationDataset(items=items, metadata={})
@@ -215,7 +226,7 @@ class TestEvaluate:
             dataset_file="test_dataset.json",
             model="test-model",
             batch_size=2,
-            prompt_type="qa"
+            prompt_type="qa",
         )
 
         assert result["summary"]["exact_match_count"] == 2
@@ -229,19 +240,20 @@ class TestEvaluate:
     @patch("exact_copying_eval.core.evaluate.extract_answer_text_by_llm")
     def test_正常系_inclusion_テスト(self, mock_extract, mock_load_dataset):
         """inclusion（部分一致）のテストが正しく動作すること"""
-        from exact_copying_eval.core.create_dataset import EvaluationDataset, EvaluationItem
-        
+        from exact_copying_eval.core.create_dataset import (
+            EvaluationDataset,
+            EvaluationItem,
+        )
+
         # モックデータセット設定
         items = [
             EvaluationItem(
                 question="Q1",
                 context="Context 1",
-                expected_answer="This is a long answer"
+                expected_answer="This is a long answer",
             ),
             EvaluationItem(
-                question="Q2",
-                context="Context 2",
-                expected_answer="Another answer"
+                question="Q2", context="Context 2", expected_answer="Another answer"
             ),
         ]
         mock_dataset = EvaluationDataset(items=items, metadata={})
@@ -254,24 +266,25 @@ class TestEvaluate:
             dataset_file="test_dataset.json",
             model="test-model",
             batch_size=2,
-            prompt_type="qa"
+            prompt_type="qa",
         )
 
         assert result["summary"]["exact_match_count"] == 1  # 2番目のみ完全一致
-        assert result["summary"]["inclusion_count"] == 2    # 両方とも部分一致
+        assert result["summary"]["inclusion_count"] == 2  # 両方とも部分一致
 
     @patch("exact_copying_eval.core.evaluate.load_evaluation_dataset")
     @patch("exact_copying_eval.core.evaluate.extract_answer_text_by_llm")
     def test_正常系_prompt_type_simple(self, mock_extract, mock_load_dataset):
         """prompt_type='simple'が正しく動作すること"""
-        from exact_copying_eval.core.create_dataset import EvaluationDataset, EvaluationItem
-        
+        from exact_copying_eval.core.create_dataset import (
+            EvaluationDataset,
+            EvaluationItem,
+        )
+
         # モックデータセット設定
         items = [
             EvaluationItem(
-                question="Q1",
-                context="Context 1",
-                expected_answer="Answer 1"
+                question="Q1", context="Context 1", expected_answer="Answer 1"
             ),
         ]
         mock_dataset = EvaluationDataset(items=items, metadata={})
@@ -283,7 +296,7 @@ class TestEvaluate:
             dataset_file="test_dataset.json",
             model="test-model",
             batch_size=2,
-            prompt_type="simple"
+            prompt_type="simple",
         )
 
         assert result["summary"]["total"] == 1
