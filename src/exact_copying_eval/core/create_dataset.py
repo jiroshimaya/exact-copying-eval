@@ -104,7 +104,7 @@ def convert_to_random_string(text: str) -> str:
     """
     # Use a separate random state for string conversion to avoid affecting
     # dataset sampling
-    string_random = random.Random(
+    string_random = random.Random(  # nosec B311
         hash(text) % (2**32)
     )  # Deterministic based on input text
     japanese_chars = (
