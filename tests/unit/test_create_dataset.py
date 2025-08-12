@@ -80,9 +80,9 @@ class TestConvertToRandomString:
             is_japanese = any(
                 start <= char_code <= end for start, end in japanese_ranges
             )
-            assert is_japanese, (
-                f"Non-Japanese character found: {char} (code: {char_code})"
-            )
+            assert (
+                is_japanese
+            ), f"Non-Japanese character found: {char} (code: {char_code})"
 
 
 class TestGetDummyIndices:
