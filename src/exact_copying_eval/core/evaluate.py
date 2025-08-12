@@ -38,13 +38,23 @@ def get_exact_copying_simple_prompt(
     messages.append({"role": "user", "content": context})
     return messages
 
+def get_exact_copying_simplest_prompt(
+    question: str, context: str
+) -> list[dict[str, str]]:
+    messages = []
+    system_prompt = (
+        "次に与える文章をそのままオウム返ししてください"
+    )
+    messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": context})
+    return messages
 
 def extract_answer_text_by_llm(
     questions: list[str],
     contexts: list[str],
     *,
     model="gpt-5-nano",
-    prompt_type: Literal["qa", "simple"],
+    prompt_type: Literal["qa", "simple", "simplest"],
 ) -> list[str]:
     """
     Extract the answer text from the context based on the question using an LLM.
@@ -68,8 +78,13 @@ def extract_answer_text_by_llm(
     for question, context in zip(questions, contexts, strict=False):
         if prompt_type == "qa":
             messages = get_exact_copying_qa_prompt(question, context)
-        else:
+        elif prompt_type == "simple":
             messages = get_exact_copying_simple_prompt(question, context)
+        else:  # simplest
+            # For simplest prompt, extract the second line from context
+            context_lines = context.split('\n')
+            second_line = context_lines[1] if len(context_lines) > 1 else ""
+            messages = get_exact_copying_simplest_prompt(question, second_line)
         messages_list.append(messages)
     response_list = litellm.batch_completion(
         messages=messages_list, model=model, response_format=ExtractedText
@@ -187,7 +202,7 @@ def evaluate(
     dataset_file: str,
     model: str = "gpt-5-nano",
     batch_size: int = 10,
-    prompt_type: Literal["qa", "simple"] = "qa",
+    prompt_type: Literal["qa", "simple", "simplest"] = "qa",
 ) -> dict[str, Any]:
     """評価を実行する関数.
 
@@ -279,9 +294,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--prompt_type",
         type=str,
-        choices=["qa", "simple"],
+        choices=["qa", "simple", "simplest"],
         default="qa",
-        help="プロンプトのタイプを指定します（qa または simple）",
+        help="プロンプトのタイプを指定します（qa、simple、または simplest）",
     )
     parser.add_argument(
         "--output_file", type=str, default=None, help="Output file path for results."

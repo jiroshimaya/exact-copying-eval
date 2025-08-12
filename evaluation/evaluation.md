@@ -25,12 +25,25 @@
 
 ### Inclusion Accuracy
 
+#### answer-inclusion
+
 | Model        | qa-natural | simple-natural | simple-random |
 |--------------|------------|----------------|---------------|
 | gpt-4.1-mini | 0.94       | 0.74           | 0.85          |
 | gpt-4.1      | 1.0        | 0.63           | 1.0           |
 | o4-mini      | 0.97       | 0.98           | 0.99          |
 | gpt-5-nano   | 0.94       | 0.72           | 0.88          |
+| gpt-5-mini   | 0.93       | 1.0            | 0.98          |
+| gpt-5        | 1.0        | 0.99           | 0.99          |
+
+#### context-inclusion
+
+| Model        | qa-natural | simple-natural | simple-random |
+|--------------|------------|----------------|---------------|
+| gpt-4.1-mini | 0.94       | 1.0            | 0.99          |
+| gpt-4.1      | 1.0        | 0.99           | 1.0           |
+| o4-mini      | 0.97       | 0.99           | 0.99          |
+| gpt-5-nano   | 0.94       | 0.98           | 0.89          |
 | gpt-5-mini   | 0.93       | 1.0            | 0.98          |
 | gpt-5        | 1.0        | 0.99           | 0.99          |
 
