@@ -38,16 +38,16 @@ def get_exact_copying_simple_prompt(
     messages.append({"role": "user", "content": context})
     return messages
 
+
 def get_exact_copying_simplest_prompt(
     question: str, context: str
 ) -> list[dict[str, str]]:
     messages = []
-    system_prompt = (
-        "次に与える文章をそのままオウム返ししてください"
-    )
+    system_prompt = "次に与える文章をそのままオウム返ししてください"
     messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": context})
     return messages
+
 
 def extract_answer_text_by_llm(
     questions: list[str],
@@ -82,7 +82,7 @@ def extract_answer_text_by_llm(
             messages = get_exact_copying_simple_prompt(question, context)
         else:  # simplest
             # For simplest prompt, extract the second line from context
-            context_lines = context.split('\n')
+            context_lines = context.split("\n")
             second_line = context_lines[1] if len(context_lines) > 1 else ""
             messages = get_exact_copying_simplest_prompt(question, second_line)
         messages_list.append(messages)

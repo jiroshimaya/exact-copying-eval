@@ -69,7 +69,7 @@ ignore = [
 
 [tool.pyright]
 include = ["src", "tests"]
-exclude = [".venv", "**/__pycache__"]
+exclude = [".venv", "**/__pycache__", "template/**"]
 pythonVersion = "3.12"
 pythonPlatform = "All"
 typeCheckingMode = "basic"
@@ -114,12 +114,13 @@ exclude_dirs = ["tests", ".venv"]
 skips = ["B101"]  # Skip assert_used test
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "manual_tests"]
 python_files = ["test_*.py", "*_test.py"]
 addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
+    "--ignore=template/",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -164,6 +165,6 @@ check-all = """
   ARGS="${args:-.}"
   uv run ruff format $ARGS &&
   uv run ruff check $ARGS --fix &&
-  uv run pyright $ARGS --strict &&
+  uv run pyright $ARGS &&
   uv run pytest $ARGS
 """

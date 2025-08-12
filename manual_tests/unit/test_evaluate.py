@@ -7,10 +7,10 @@ APIキーが必要であり、課金が発生する可能性があります。
     uv run pytest manual_tests/unit/test_extract_answer_text_by_llm.py -v
 """
 
+from exact_copying_eval.core.create_dataset import load_jsquad
 from exact_copying_eval.core.evaluate import (
     evaluate,
     extract_answer_text_by_llm,
-    load_jsquad,
 )
 
 

@@ -160,7 +160,11 @@ class TestCalculateMetrics:
         """すべて完全一致する場合の指標計算を確認"""
         questions = ["Q1", "Q2", "Q3"]
         answers = ["Answer 1", "Answer 2", "Answer 3"]
-        contexts = ["Context 1\nAnswer 1\nMore", "Context 2\nAnswer 2\nMore", "Context 3\nAnswer 3\nMore"]
+        contexts = [
+            "Context 1\nAnswer 1\nMore",
+            "Context 2\nAnswer 2\nMore",
+            "Context 3\nAnswer 3\nMore",
+        ]
         generated_answers = ["Answer 1", "Answer 2", "Answer 3"]
 
         result = calculate_metrics(questions, answers, contexts, generated_answers)
@@ -191,7 +195,9 @@ class TestCalculateMetrics:
 
         assert result["summary"]["total"] == 3
         assert result["summary"]["exact_match_count"] == 0
-        assert result["summary"]["answer_inclusion_count"] == 1  # "期待される" in "期待される回答文です"
+        assert (
+            result["summary"]["answer_inclusion_count"] == 1
+        )  # "期待される" in "期待される回答文です"
         assert result["summary"]["context_inclusion_count"] == 2  # 1番目と2番目
 
         # 詳細結果の確認
@@ -214,12 +220,12 @@ class TestCalculateMetrics:
 
         detailed_results = result["detail"]["detailed_results"]
         # 1番目: 編集距離2/6 = 0.333...
-        assert abs(detailed_results[0]["edit_distance"] - 2/6) < 0.001
+        assert abs(detailed_results[0]["edit_distance"] - 2 / 6) < 0.001
         # 2番目: 編集距離0/3 = 0.0
         assert detailed_results[1]["edit_distance"] == 0.0
-        
+
         # 平均編集距離
-        expected_avg = (2/6 + 0.0) / 2
+        expected_avg = (2 / 6 + 0.0) / 2
         assert abs(result["summary"]["avg_edit_distance"] - expected_avg) < 0.001
 
     def test_正常系_空のリスト(self):
@@ -313,13 +319,19 @@ class TestEvaluate:
         # モックデータセット設定
         items = [
             EvaluationItem(
-                question="Q1", context="Context 1\nAnswer 1\nMore context", expected_answer="Answer 1"
+                question="Q1",
+                context="Context 1\nAnswer 1\nMore context",
+                expected_answer="Answer 1",
             ),
             EvaluationItem(
-                question="Q2", context="Context 2\nAnswer 2\nMore context", expected_answer="Answer 2"
+                question="Q2",
+                context="Context 2\nAnswer 2\nMore context",
+                expected_answer="Answer 2",
             ),
             EvaluationItem(
-                question="Q3", context="Context 3\nAnswer 3\nMore context", expected_answer="Answer 3"
+                question="Q3",
+                context="Context 3\nAnswer 3\nMore context",
+                expected_answer="Answer 3",
             ),
         ]
         mock_dataset = EvaluationDataset(items=items, metadata={})
@@ -359,7 +371,9 @@ class TestEvaluate:
                 expected_answer="This is a long answer",
             ),
             EvaluationItem(
-                question="Q2", context="Context 2\nAnother answer\nMore context", expected_answer="Another answer"
+                question="Q2",
+                context="Context 2\nAnother answer\nMore context",
+                expected_answer="Another answer",
             ),
         ]
         mock_dataset = EvaluationDataset(items=items, metadata={})
@@ -377,7 +391,9 @@ class TestEvaluate:
 
         assert result["summary"]["exact_match_count"] == 1  # 2番目のみ完全一致
         assert result["summary"]["answer_inclusion_count"] == 2  # 両方とも部分一致
-        assert result["summary"]["context_inclusion_count"] == 2  # 両方ともコンテキストに含まれる
+        assert (
+            result["summary"]["context_inclusion_count"] == 2
+        )  # 両方ともコンテキストに含まれる
 
     @patch("exact_copying_eval.core.evaluate.load_evaluation_dataset")
     @patch("exact_copying_eval.core.evaluate.extract_answer_text_by_llm")
@@ -391,7 +407,9 @@ class TestEvaluate:
         # モックデータセット設定
         items = [
             EvaluationItem(
-                question="Q1", context="Context 1\nAnswer 1\nMore context", expected_answer="Answer 1"
+                question="Q1",
+                context="Context 1\nAnswer 1\nMore context",
+                expected_answer="Answer 1",
             ),
         ]
         mock_dataset = EvaluationDataset(items=items, metadata={})
@@ -414,7 +432,9 @@ class TestEvaluate:
 
     @patch("exact_copying_eval.core.evaluate.load_evaluation_dataset")
     @patch("exact_copying_eval.core.evaluate.extract_answer_text_by_llm")
-    def test_正常系_answer_inclusion_と_context_inclusion_の違い(self, mock_extract, mock_load_dataset):
+    def test_正常系_answer_inclusion_と_context_inclusion_の違い(
+        self, mock_extract, mock_load_dataset
+    ):
         """answer_inclusionとcontext_inclusionの違いが正しく評価されること"""
         from exact_copying_eval.core.create_dataset import (
             EvaluationDataset,
@@ -457,20 +477,24 @@ class TestEvaluate:
 
         # 検証
         assert result["summary"]["exact_match_count"] == 0  # 完全一致なし
-        assert result["summary"]["answer_inclusion_count"] == 1  # 1番目のみ期待回答に含まれる
-        assert result["summary"]["context_inclusion_count"] == 2  # 1番目と2番目はコンテキストに含まれる
-        
+        assert (
+            result["summary"]["answer_inclusion_count"] == 1
+        )  # 1番目のみ期待回答に含まれる
+        assert (
+            result["summary"]["context_inclusion_count"] == 2
+        )  # 1番目と2番目はコンテキストに含まれる
+
         # 詳細結果の確認
         detailed_results = result["detail"]["detailed_results"]
-        
+
         # 1番目のケース: answer_inclusion=True, context_inclusion=True
         assert detailed_results[0]["answer_inclusion"] is True
         assert detailed_results[0]["context_inclusion"] is True
-        
+
         # 2番目のケース: answer_inclusion=False, context_inclusion=True
         assert detailed_results[1]["answer_inclusion"] is False
         assert detailed_results[1]["context_inclusion"] is True
-        
+
         # 3番目のケース: answer_inclusion=False, context_inclusion=False
         assert detailed_results[2]["answer_inclusion"] is False
         assert detailed_results[2]["context_inclusion"] is False
@@ -513,15 +537,15 @@ class TestEvaluate:
         )
 
         detailed_results = result["detail"]["detailed_results"]
-        
+
         # 1番目の編集距離確認（許容範囲で比較）
-        assert abs(detailed_results[0]["edit_distance"] - 2/6) < 0.001
-        
+        assert abs(detailed_results[0]["edit_distance"] - 2 / 6) < 0.001
+
         # 2番目の編集距離確認
         assert detailed_results[1]["edit_distance"] == 0.0
-        
+
         # 平均編集距離確認
-        expected_avg = (2/6 + 0.0) / 2
+        expected_avg = (2 / 6 + 0.0) / 2
         assert abs(result["summary"]["avg_edit_distance"] - expected_avg) < 0.001
 
     @patch("exact_copying_eval.core.evaluate.load_evaluation_dataset")
